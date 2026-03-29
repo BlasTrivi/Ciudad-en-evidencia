@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'ciudad-en-evidencia-reportes';
+const SUPPORT_STORAGE_KEY = 'ciudad-en-evidencia-apoyos';
 
 const CATEGORIES = [
   'Pozo',
@@ -28,6 +29,7 @@ const state = {
   reports: [],
   filteredReports: [],
   selectedCoords: null,
+  supportedReports: new Set(),
   markers: new Map(),
   tempMarker: null,
   map: null,
@@ -64,6 +66,10 @@ const el = {
   locateBtn: document.getElementById('locateBtn'),
   seedDataBtn: document.getElementById('seedDataBtn'),
   clearDataBtn: document.getElementById('clearDataBtn'),
+  mapClickPrompt: document.getElementById('mapClickPrompt'),
+  mapClickPromptCoords: document.getElementById('mapClickPromptCoords'),
+  openFormFromMapBtn: document.getElementById('openFormFromMapBtn'),
+  closeMapPromptBtn: document.getElementById('closeMapPromptBtn'),
 };
 
 function init() {
@@ -71,6 +77,7 @@ function init() {
   setupMap();
   setupEvents();
   loadReports();
+  loadSupportedReports();
   render();
 }
 
@@ -104,11 +111,12 @@ function setupMap() {
 
   state.map.on('click', (event) => {
     setSelectedCoords(event.latlng.lat, event.latlng.lng, true);
+    openMapClickPrompt();
   });
 }
 
 function setupEvents() {
-  el.openReportBtn.addEventListener('click', openReportModal);
+  el.openReportBtn.addEventListener('click', () => openReportModal({ preserveCoords: true }));
   el.toggleSidebarBtn.addEventListener('click', () => toggleSidebar());
   el.sidebarOverlay.addEventListener('click', () => toggleSidebar(false));
   el.reportForm.addEventListener('submit', handleSubmit);
@@ -117,6 +125,8 @@ function setupEvents() {
   el.resetFiltersBtn.addEventListener('click', resetFilters);
   el.seedDataBtn.addEventListener('click', seedDemoData);
   el.clearDataBtn.addEventListener('click', clearAllData);
+  el.openFormFromMapBtn.addEventListener('click', () => openReportModal({ preserveCoords: true }));
+  el.closeMapPromptBtn.addEventListener('click', closeMapClickPrompt);
 
   [el.categoryFilter, el.statusFilter, el.severityFilter, el.searchInput].forEach((node) => {
     node.addEventListener('input', render);
@@ -149,9 +159,25 @@ function setupEvents() {
 function loadReports() {
   try {
     const data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-    state.reports = data;
+    state.reports = data.map((report) => ({
+      ...report,
+      votes: Number.isFinite(report.votes) ? report.votes : 1,
+    }));
   } catch {
     state.reports = [];
+  }
+}
+
+function loadSupportedReports() {
+  try {
+    const data = JSON.parse(localStorage.getItem(SUPPORT_STORAGE_KEY));
+    if (Array.isArray(data)) {
+      state.supportedReports = new Set(data);
+      return;
+    }
+    state.supportedReports = new Set();
+  } catch {
+    state.supportedReports = new Set();
   }
 }
 
@@ -159,12 +185,28 @@ function saveReports() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.reports));
 }
 
-function openReportModal() {
+function saveSupportedReports() {
+  localStorage.setItem(SUPPORT_STORAGE_KEY, JSON.stringify([...state.supportedReports]));
+}
+
+function openReportModal({ preserveCoords = false } = {}) {
   el.reportForm.reset();
   el.status.value = 'pendiente';
   el.severity.value = 'Media';
-  setSelectedCoords(null, null);
+
+  if (!preserveCoords) {
+    setSelectedCoords(null, null);
+  } else if (state.selectedCoords) {
+    setSelectedCoords(state.selectedCoords.lat, state.selectedCoords.lng);
+  }
+
+  closeMapClickPrompt();
+  toggleSidebar(false);
   openModal(el.reportModal);
+
+  requestAnimationFrame(() => {
+    document.getElementById('title')?.focus();
+  });
 }
 
 function openModal(modal) {
@@ -177,6 +219,16 @@ function closeModal(modal) {
   modal.setAttribute('aria-hidden', 'true');
 }
 
+function openMapClickPrompt() {
+  if (!state.selectedCoords) return;
+  el.mapClickPromptCoords.textContent = `${state.selectedCoords.lat.toFixed(6)}, ${state.selectedCoords.lng.toFixed(6)}`;
+  el.mapClickPrompt.classList.remove('hidden');
+}
+
+function closeMapClickPrompt() {
+  el.mapClickPrompt.classList.add('hidden');
+}
+
 function setSelectedCoords(lat, lng, shouldPan = false) {
   if (lat == null || lng == null) {
     state.selectedCoords = null;
@@ -187,6 +239,7 @@ function setSelectedCoords(lat, lng, shouldPan = false) {
       state.map.removeLayer(state.tempMarker);
       state.tempMarker = null;
     }
+    closeMapClickPrompt();
     return;
   }
 
@@ -214,6 +267,7 @@ function useCurrentLocation() {
     (position) => {
       const { latitude, longitude } = position.coords;
       setSelectedCoords(latitude, longitude, true);
+      openMapClickPrompt();
     },
     () => alert('No se pudo obtener tu ubicación.')
   );
@@ -269,6 +323,7 @@ async function handleSubmit(event) {
   state.reports.unshift(report);
   saveReports();
   closeModal(el.reportModal);
+  closeMapClickPrompt();
   render();
 }
 
@@ -389,6 +444,8 @@ function createCustomIcon(status) {
 function openDetails(reportId) {
   const report = state.reports.find((item) => item.id === reportId);
   if (!report) return;
+  const alreadySupported = hasSupportedReport(report.id);
+  const supportButtonText = alreadySupported ? 'Ya apoyaste' : 'Apoyar reclamo';
 
   el.detailsTitle.textContent = report.title;
   el.detailsContent.innerHTML = `
@@ -407,7 +464,7 @@ function openDetails(reportId) {
     </div>
     <div class="form-actions">
       <button class="ghost-btn" onclick="window.__focusReport('${report.id}')">Ir al mapa</button>
-      <button class="ghost-btn" onclick="window.__supportReport('${report.id}')">Apoyar reclamo</button>
+      <button class="ghost-btn ${alreadySupported ? 'is-disabled' : ''}" onclick="window.__supportReport('${report.id}')" ${alreadySupported ? 'disabled' : ''}>${supportButtonText}</button>
       <button class="ghost-btn" onclick="window.__cycleStatus('${report.id}')">Cambiar estado</button>
       <button class="danger-btn" onclick="window.__deleteReport('${report.id}')">Eliminar</button>
     </div>
@@ -430,10 +487,22 @@ function focusReport(reportId) {
 function supportReport(reportId) {
   const report = state.reports.find((item) => item.id === reportId);
   if (!report) return;
+
+  if (hasSupportedReport(reportId)) {
+    alert('Ya apoyaste este reclamo desde este dispositivo.');
+    return;
+  }
+
   report.votes += 1;
+  state.supportedReports.add(reportId);
   saveReports();
+  saveSupportedReports();
   render();
   openDetails(reportId);
+}
+
+function hasSupportedReport(reportId) {
+  return state.supportedReports.has(reportId);
 }
 
 function cycleStatus(reportId) {
@@ -451,7 +520,9 @@ function deleteReport(reportId) {
   const confirmDelete = confirm('¿Seguro que querés eliminar este reporte?');
   if (!confirmDelete) return;
   state.reports = state.reports.filter((item) => item.id !== reportId);
+  state.supportedReports.delete(reportId);
   saveReports();
+  saveSupportedReports();
   closeModal(el.detailsModal);
   render();
 }
@@ -531,7 +602,9 @@ function clearAllData() {
   const confirmed = confirm('Esto eliminará todos los reportes guardados en este navegador.');
   if (!confirmed) return;
   state.reports = [];
+  state.supportedReports.clear();
   saveReports();
+  saveSupportedReports();
   closeModal(el.detailsModal);
   render();
 }

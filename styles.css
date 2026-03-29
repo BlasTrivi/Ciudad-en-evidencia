@@ -423,6 +423,12 @@ h1 {
   border-color: var(--border-hi);
   color: var(--text);
 }
+.ghost-btn.is-disabled,
+.ghost-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 .ghost-btn.small {
   padding: 6px 12px;
   font-size: 0.78rem;
@@ -470,6 +476,55 @@ h1 {
   flex: 1;
   min-height: 100vh;
   width: 100%;
+  touch-action: pan-x pan-y;
+}
+
+.map-click-prompt {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 920;
+  background: var(--glass);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--r-lg);
+  padding: 12px;
+  width: min(360px, calc(100vw - 32px));
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.map-click-prompt.hidden {
+  display: none;
+}
+
+.map-click-prompt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.map-click-prompt p {
+  color: var(--text-soft);
+  font-size: 0.82rem;
+}
+
+.map-click-prompt p span {
+  font-family: var(--font-mono);
+  color: var(--accent);
+}
+
+.map-prompt-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.map-prompt-close {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 6px 10px;
 }
 
 /* ─── Topbar ─────────────────────────────────────────────────────────── */
@@ -801,6 +856,14 @@ h3 {
   .map-help {
     left: 10px; right: 10px; bottom: 10px;
     max-width: none;
+  }
+
+  .map-click-prompt {
+    left: 10px;
+    right: 10px;
+    bottom: 74px;
+    width: auto;
+    padding: 11px;
   }
 
   .modal { padding: 10px; }

@@ -134,6 +134,15 @@
 
       <div id="map"></div>
 
+      <div id="mapClickPrompt" class="map-click-prompt hidden" role="status" aria-live="polite">
+        <div class="map-click-prompt-header">
+          <strong>Punto seleccionado</strong>
+          <button id="closeMapPromptBtn" class="icon-close-btn map-prompt-close" aria-label="Cerrar aviso">&times;</button>
+        </div>
+        <p>Ubicación: <span id="mapClickPromptCoords">-</span></p>
+        <button id="openFormFromMapBtn" class="primary-btn map-prompt-btn">Abrir formulario y cargar datos</button>
+      </div>
+
       <div class="map-help">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/>
