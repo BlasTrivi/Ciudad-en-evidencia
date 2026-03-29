@@ -79,6 +79,7 @@ function init() {
   loadReports();
   loadSupportedReports();
   render();
+  queueMapResizeFix();
 }
 
 function populateSelects() {
@@ -154,6 +155,28 @@ function setupEvents() {
       if (event.target === modal) closeModal(modal);
     });
   });
+
+  window.addEventListener('resize', queueMapResizeFix);
+  window.addEventListener('orientationchange', queueMapResizeFix);
+  window.addEventListener('pageshow', queueMapResizeFix);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      queueMapResizeFix();
+    }
+  });
+}
+
+function queueMapResizeFix() {
+  if (!state.map) return;
+
+  requestAnimationFrame(() => {
+    state.map.invalidateSize({ pan: false, animate: false });
+  });
+
+  setTimeout(() => {
+    if (!state.map) return;
+    state.map.invalidateSize({ pan: false, animate: false });
+  }, 250);
 }
 
 function loadReports() {
@@ -423,6 +446,7 @@ function toggleSidebar(forceOpen) {
   const isOpen = forceOpen !== undefined ? forceOpen : !el.sidebar.classList.contains('open');
   el.sidebar.classList.toggle('open', isOpen);
   el.sidebarOverlay.classList.toggle('visible', isOpen);
+  queueMapResizeFix();
 }
 
 function createCustomIcon(status) {
