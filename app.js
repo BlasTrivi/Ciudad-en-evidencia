@@ -448,6 +448,7 @@ function renderReportsList() {
 
   state.filteredReports.forEach((report) => {
     const fragment = el.reportCardTemplate.content.cloneNode(true);
+    const card = fragment.querySelector('.report-card');
     fragment.querySelector('.report-title').textContent = report.title;
     fragment.querySelector('.report-meta').textContent = `${report.category} • ${formatStatus(report.status)} • ${formatDate(report.createdAt)}`;
     fragment.querySelector('.report-description').textContent = report.description;
@@ -464,8 +465,27 @@ function renderReportsList() {
       tagsContainer.appendChild(tag);
     });
 
-    fragment.querySelector('.view-btn').addEventListener('click', () => openDetails(report.id));
-    fragment.querySelector('.focus-btn').addEventListener('click', () => focusReport(report.id));
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('aria-label', `Ver detalle de ${report.title}`);
+    card.addEventListener('click', () => openDetails(report.id));
+    card.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openDetails(report.id);
+      }
+    });
+
+    const viewButton = fragment.querySelector('.view-btn');
+    const focusButton = fragment.querySelector('.focus-btn');
+    viewButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openDetails(report.id);
+    });
+    focusButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      focusReport(report.id);
+    });
 
     el.reportsList.appendChild(fragment);
   });
