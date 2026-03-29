@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ciudad en Evidencia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Outfit:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+
+      <div class="brand-block">
+        <div class="brand-top">
+          <span class="brand-badge">MVP</span>
+          <div class="brand-ping"></div>
+        </div>
+        <div class="brand-icon-row">
+          <svg class="brand-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>
+            <line x1="12" y1="2" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="22"/>
+            <line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/>
+          </svg>
+          <h1>Ciudad en Evidencia</h1>
+        </div>
+        <p class="subtitle">Mapa ciudadano para visibilizar y gestionar problemas urbanos hasta su resolución.</p>
+        <button id="openReportBtn" class="primary-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nuevo reporte
+        </button>
+      </div>
+
+      <div class="stats-panel">
+        <div class="stat-card">
+          <span class="stat-label">Total</span>
+          <strong id="totalReports" class="stat-value">0</strong>
+          <div class="stat-bar"></div>
+        </div>
+        <div class="stat-card accent-pending">
+          <span class="stat-label">Pendientes</span>
+          <strong id="pendingReports" class="stat-value">0</strong>
+          <div class="stat-bar"></div>
+        </div>
+        <div class="stat-card accent-resolved">
+          <span class="stat-label">Resueltos</span>
+          <strong id="resolvedReports" class="stat-value">0</strong>
+          <div class="stat-bar"></div>
+        </div>
+      </div>
+
+      <section class="panel filters-panel">
+        <div class="panel-header">
+          <h2>Filtros</h2>
+          <button id="resetFiltersBtn" class="ghost-btn small">Limpiar</button>
+        </div>
+
+        <div class="search-wrapper">
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input id="searchInput" class="input search-input" type="text" placeholder="Buscar por nombre, barrio..." />
+        </div>
+
+        <div class="filters-grid">
+          <div class="field-group">
+            <label class="field-label">Categoría</label>
+            <select id="categoryFilter" class="input select"><option value="all">Todas</option></select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Estado</label>
+            <select id="statusFilter" class="input select"><option value="all">Todos</option></select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Severidad</label>
+            <select id="severityFilter" class="input select"><option value="all">Todas</option></select>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel reports-panel">
+        <div class="panel-header">
+          <h2>Reportes</h2>
+          <span id="reportsCountBadge" class="count-badge">0</span>
+        </div>
+        <div id="reportsList" class="reports-list"></div>
+      </section>
+
+    </aside>
+
+    <main class="map-area">
+      <div class="topbar">
+        <div class="topbar-left">
+          <button id="toggleSidebarBtn" class="icon-btn mobile-only" aria-label="Menú">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+          <div class="status-legend">
+            <span class="legend-item"><i class="dot status-pending"></i><span class="legend-label">Pendiente</span></span>
+            <span class="legend-item"><i class="dot status-review"></i><span class="legend-label">En revisión</span></span>
+            <span class="legend-item legend-lg"><i class="dot status-progress"></i><span class="legend-label">En arreglo</span></span>
+            <span class="legend-item legend-lg"><i class="dot status-resolved"></i><span class="legend-label">Resuelto</span></span>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button id="locateBtn" class="ghost-btn topbar-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/>
+            </svg>
+            <span class="btn-text">Mi ubicación</span>
+          </button>
+          <button id="seedDataBtn" class="ghost-btn topbar-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            <span class="btn-text">Demo</span>
+          </button>
+          <button id="clearDataBtn" class="danger-btn topbar-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+            </svg>
+            <span class="btn-text">Borrar</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="map"></div>
+
+      <div class="map-help">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/>
+        </svg>
+        <p>Hacé clic en el mapa para seleccionar una ubicación al crear un reporte.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal: Nuevo Reporte -->
+  <div id="reportModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-card large">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Nuevo reporte</p>
+          <h3>Registrar problema urbano</h3>
+        </div>
+        <button class="icon-close-btn" data-close-modal aria-label="Cerrar">&times;</button>
+      </div>
+
+      <form id="reportForm" class="form-grid">
+        <div class="full-width info-box">
+          <svg class="info-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
+          </svg>
+          <div>
+            <p>Seleccioná un punto en el mapa o usá tu ubicación actual. También podés ajustar las coordenadas manualmente.</p>
+            <p id="selectedCoords" class="coords-text">Sin ubicación seleccionada.</p>
+          </div>
+        </div>
+
+        <div class="field-group full-width">
+          <label class="field-label" for="title">Título del reporte</label>
+          <input id="title" name="title" class="input" type="text" placeholder="Ej: Pozo peligroso en esquina" required />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="category">Categoría</label>
+          <select id="category" name="category" class="input select" required></select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="severity">Severidad</label>
+          <select id="severity" name="severity" class="input select" required></select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="status">Estado</label>
+          <select id="status" name="status" class="input select" required></select>
+        </div>
+
+        <div class="field-group coords-group">
+          <label class="field-label">Coordenadas</label>
+          <div class="coords-inputs">
+            <input id="lat" name="lat" class="input mono" type="number" step="any" placeholder="Latitud" required />
+            <input id="lng" name="lng" class="input mono" type="number" step="any" placeholder="Longitud" required />
+          </div>
+        </div>
+
+        <div class="full-width field-group">
+          <label class="field-label" for="description">Descripción</label>
+          <textarea id="description" name="description" class="input textarea" placeholder="Contá qué está pasando y por qué debería resolverse..." required></textarea>
+        </div>
+
+        <div class="full-width field-group">
+          <label class="field-label" for="image">Imagen (opcional)</label>
+          <div class="file-upload-area">
+            <input id="image" name="image" class="file-input-hidden" type="file" accept="image/*" />
+            <label for="image" class="file-upload-label">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span>Subir imagen</span>
+              <small>Se guarda en el navegador (localStorage)</small>
+            </label>
+          </div>
+        </div>
+
+        <div class="full-width form-actions">
+          <button type="button" id="useCurrentLocationBtn" class="ghost-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/>
+            </svg>
+            Usar mi ubicación
+          </button>
+          <button type="submit" class="primary-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Guardar reporte
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Detalle -->
+  <div id="detailsModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Detalle del reporte</p>
+          <h3 id="detailsTitle">Reporte</h3>
+        </div>
+        <button class="icon-close-btn" data-close-modal aria-label="Cerrar">&times;</button>
+      </div>
+      <div id="detailsContent" class="details-content"></div>
+    </div>
+  </div>
+
+  <!-- Template de tarjeta -->
+  <template id="reportCardTemplate">
+    <article class="report-card">
+      <div class="report-card-top">
+        <div class="report-card-info">
+          <h3 class="report-title"></h3>
+          <p class="report-meta"></p>
+        </div>
+        <span class="severity-badge"></span>
+      </div>
+      <p class="report-description"></p>
+      <div class="report-tags"></div>
+      <div class="report-actions">
+        <button class="ghost-btn small view-btn">Ver detalle</button>
+        <button class="ghost-btn small focus-btn">Ir al mapa</button>
+      </div>
+    </article>
+  </template>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="app.js"></script>
+</body>
+</html>
