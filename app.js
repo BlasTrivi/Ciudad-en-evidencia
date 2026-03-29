@@ -30,7 +30,11 @@ const state = {
   filteredReports: [],
   selectedCoords: null,
   supportedReports: new Set(),
+  visualMode: 'mixed',
   markers: new Map(),
+  heatLayer: null,
+  hotspotLayer: null,
+  focusPulse: null,
   tempMarker: null,
   map: null,
 };
@@ -67,6 +71,8 @@ const el = {
   seedDataBtn: document.getElementById('seedDataBtn'),
   clearDataBtn: document.getElementById('clearDataBtn'),
   imageInput: document.getElementById('image'),
+  visualModeButtons: Array.from(document.querySelectorAll('[data-visual-mode]')),
+  heatLegend: document.getElementById('heatLegend'),
   mapClickPrompt: document.getElementById('mapClickPrompt'),
   mapClickPromptCoords: document.getElementById('mapClickPromptCoords'),
   openFormFromMapBtn: document.getElementById('openFormFromMapBtn'),
@@ -130,6 +136,11 @@ function setupEvents() {
   el.clearDataBtn.addEventListener('click', clearAllData);
   el.openFormFromMapBtn.addEventListener('click', () => openReportModal({ preserveCoords: true }));
   el.closeMapPromptBtn.addEventListener('click', closeMapClickPrompt);
+  el.visualModeButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      setVisualMode(button.dataset.visualMode);
+    });
+  });
   el.imageInput?.addEventListener('change', () => {
     setTimeout(queueMapResizeFix, 100);
     setTimeout(queueMapResizeFix, 350);
@@ -400,7 +411,24 @@ function render() {
   state.filteredReports = getFilteredReports();
   renderStats();
   renderReportsList();
+  renderMapLayers();
+}
+
+function setVisualMode(mode) {
+  const allowedModes = new Set(['markers', 'heat', 'mixed']);
+  if (!allowedModes.has(mode)) return;
+  if (state.visualMode === mode) return;
+
+  state.visualMode = mode;
+  renderMapLayers();
+  queueMapResizeFix();
+}
+
+function renderMapLayers() {
   renderMarkers();
+  renderHeatLayer();
+  renderHotspotShapes();
+  updateVisualModeUI();
 }
 
 function renderStats() {
@@ -449,6 +477,10 @@ function renderMarkers() {
   }
   state.markers.clear();
 
+  if (state.visualMode === 'heat') {
+    return;
+  }
+
   state.filteredReports.forEach((report) => {
     const marker = L.marker([report.lat, report.lng], {
       icon: createCustomIcon(report.status)
@@ -466,6 +498,115 @@ function renderMarkers() {
     marker.addTo(state.map);
     state.markers.set(report.id, marker);
   });
+}
+
+function renderHeatLayer() {
+  if (state.heatLayer) {
+    state.map.removeLayer(state.heatLayer);
+    state.heatLayer = null;
+  }
+
+  if (state.visualMode === 'markers') {
+    return;
+  }
+
+  if (!state.filteredReports.length || typeof L.heatLayer !== 'function') {
+    return;
+  }
+
+  const points = state.filteredReports.map((report) => [
+    report.lat,
+    report.lng,
+    getReportIntensity(report),
+  ]);
+
+  state.heatLayer = L.heatLayer(points, {
+    radius: window.innerWidth <= 640 ? 24 : 30,
+    blur: 24,
+    maxZoom: 18,
+    minOpacity: 0.35,
+    gradient: {
+      0.15: '#38bdf8',
+      0.4: '#00e8a8',
+      0.7: '#f59e0b',
+      1.0: '#ff4d6d',
+    }
+  }).addTo(state.map);
+}
+
+function renderHotspotShapes() {
+  if (state.hotspotLayer) {
+    state.map.removeLayer(state.hotspotLayer);
+    state.hotspotLayer = null;
+  }
+
+  if (state.visualMode === 'markers') {
+    return;
+  }
+
+  if (!state.filteredReports.length) {
+    return;
+  }
+
+  state.hotspotLayer = L.layerGroup().addTo(state.map);
+
+  const hotspots = [...state.filteredReports]
+    .sort((a, b) => getReportIntensity(b) - getReportIntensity(a))
+    .slice(0, Math.min(12, state.filteredReports.length));
+
+  hotspots.forEach((report) => {
+    const intensity = getReportIntensity(report);
+    const color = getHeatColor(intensity);
+    const radius = 140 + intensity * 320;
+
+    L.circle([report.lat, report.lng], {
+      radius,
+      weight: 1.4,
+      color,
+      fillColor: color,
+      fillOpacity: 0.08 + intensity * 0.18,
+      opacity: 0.65,
+    })
+      .bindTooltip(`${escapeHtml(report.title)} • intensidad ${Math.round(intensity * 100)}%`, {
+        direction: 'top',
+        sticky: true,
+      })
+      .addTo(state.hotspotLayer);
+  });
+}
+
+function updateVisualModeUI() {
+  el.visualModeButtons.forEach((button) => {
+    const isActive = button.dataset.visualMode === state.visualMode;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+
+  const showHeatLegend = state.visualMode !== 'markers' && state.filteredReports.length > 0;
+  el.heatLegend.classList.toggle('hidden', !showHeatLegend);
+  el.heatLegend.setAttribute('aria-hidden', String(!showHeatLegend));
+}
+
+function getReportIntensity(report) {
+  const severityScore = {
+    Baja: 0.35,
+    Media: 0.65,
+    Alta: 1,
+  }[report.severity] || 0.5;
+
+  const votes = Number(report.votes) || 1;
+  const votesScore = Math.min(1, Math.log1p(votes) / Math.log1p(30));
+  const statusScore = report.status === 'resuelto' ? 0.4 : 1;
+
+  const weighted = severityScore * 0.5 + votesScore * 0.3 + statusScore * 0.2;
+  return Math.max(0.15, Math.min(1, weighted));
+}
+
+function getHeatColor(intensity) {
+  if (intensity >= 0.85) return '#ff4d6d';
+  if (intensity >= 0.68) return '#f59e0b';
+  if (intensity >= 0.45) return '#00e8a8';
+  return '#38bdf8';
 }
 
 function toggleSidebar(forceOpen) {
@@ -526,12 +667,39 @@ function openDetails(reportId) {
 function focusReport(reportId) {
   const report = state.reports.find((item) => item.id === reportId);
   const marker = state.markers.get(reportId);
-  if (!report || !marker) return;
+  if (!report) return;
 
   closeModal(el.detailsModal);
   toggleSidebar(false);
   state.map.flyTo([report.lat, report.lng], 18, { duration: 0.9 });
-  marker.openPopup();
+
+  if (marker) {
+    marker.openPopup();
+    return;
+  }
+
+  if (state.focusPulse) {
+    state.map.removeLayer(state.focusPulse);
+    state.focusPulse = null;
+  }
+
+  state.focusPulse = L.circleMarker([report.lat, report.lng], {
+    radius: 10,
+    weight: 2.5,
+    color: '#ffffff',
+    fillColor: '#00e8a8',
+    fillOpacity: 0.9,
+  })
+    .addTo(state.map)
+    .bindPopup(escapeHtml(report.title));
+
+  state.focusPulse.openPopup();
+
+  setTimeout(() => {
+    if (!state.focusPulse) return;
+    state.map.removeLayer(state.focusPulse);
+    state.focusPulse = null;
+  }, 2200);
 }
 
 function supportReport(reportId) {
