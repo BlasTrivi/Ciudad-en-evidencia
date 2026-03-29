@@ -1,5 +1,7 @@
 /* ─── Design Tokens ──────────────────────────────────────────────────── */
 :root {
+  --app-height: 100dvh;
+
   /* Backgrounds */
   --bg:          #040c1a;
   --surface:     #070f1e;
@@ -62,9 +64,13 @@ html, body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
 }
+html {
+  height: 100%;
+  overflow: hidden;
+}
 body {
   min-height: 100vh;
-  min-height: 100dvh;
+  min-height: var(--app-height);
   overflow: hidden;
 }
 h1,h2,h3,p { margin: 0; }
@@ -83,7 +89,7 @@ svg { flex-shrink: 0; }
   display: grid;
   grid-template-columns: 380px 1fr;
   min-height: 100vh;
-  height: 100dvh;
+  height: var(--app-height);
 }
 
 /* ─── Sidebar Overlay (mobile) ──────────────────────────────────────── */
@@ -126,6 +132,11 @@ svg { flex-shrink: 0; }
   z-index: 2;
   overflow: hidden;
 }
+
+.brand-block > * {
+  position: relative;
+  z-index: 1;
+}
 .brand-block::before {
   content: '';
   position: absolute;
@@ -165,6 +176,7 @@ svg { flex-shrink: 0; }
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 .brand-icon {
   color: var(--accent);
@@ -178,12 +190,14 @@ h1 {
   letter-spacing: -0.02em;
   line-height: 1.1;
   color: var(--text);
+  white-space: normal;
 }
 .subtitle {
   color: var(--text-soft);
   font-size: 0.875rem;
   line-height: 1.55;
   font-weight: 300;
+  display: block;
 }
 
 /* ─── Stats Panel ────────────────────────────────────────────────────── */
@@ -238,6 +252,7 @@ h1 {
   border: 1px solid var(--border);
   border-radius: var(--r-xl);
   padding: 16px;
+  min-width: 0;
 }
 .panel-header {
   display: flex;
@@ -317,12 +332,20 @@ h1 {
 .mono { font-family: var(--font-mono); font-size: 0.85rem; }
 
 /* ─── Reports List ───────────────────────────────────────────────────── */
-.reports-panel { flex: 1; min-height: 220px; }
+.reports-panel {
+  flex: 1;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .reports-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 /* ─── Report Card ────────────────────────────────────────────────────── */
@@ -873,8 +896,8 @@ h3 {
   }
   .sidebar.open { transform: translateX(0); }
   .mobile-only { display: inline-flex; }
-  .map-area { height: 100dvh; }
-  #map { height: 100dvh; }
+  .map-area { height: var(--app-height); }
+  #map { height: var(--app-height); }
 }
 
 /* Large tablet — hide some legend items */
@@ -954,6 +977,9 @@ h3 {
   .sidebar { width: 92vw; }
   .brand-block {
     top: 0;
+  }
+  .brand-icon-row {
+    gap: 8px;
   }
   .sidebar .filters-grid { grid-template-columns: 1fr; }
   .sidebar .filters-grid .field-group:nth-child(3) { grid-column: auto; }

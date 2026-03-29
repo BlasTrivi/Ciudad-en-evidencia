@@ -66,6 +66,7 @@ const el = {
   locateBtn: document.getElementById('locateBtn'),
   seedDataBtn: document.getElementById('seedDataBtn'),
   clearDataBtn: document.getElementById('clearDataBtn'),
+  imageInput: document.getElementById('image'),
   mapClickPrompt: document.getElementById('mapClickPrompt'),
   mapClickPromptCoords: document.getElementById('mapClickPromptCoords'),
   openFormFromMapBtn: document.getElementById('openFormFromMapBtn'),
@@ -73,6 +74,7 @@ const el = {
 };
 
 function init() {
+  syncViewportHeight();
   populateSelects();
   setupMap();
   setupEvents();
@@ -128,6 +130,10 @@ function setupEvents() {
   el.clearDataBtn.addEventListener('click', clearAllData);
   el.openFormFromMapBtn.addEventListener('click', () => openReportModal({ preserveCoords: true }));
   el.closeMapPromptBtn.addEventListener('click', closeMapClickPrompt);
+  el.imageInput?.addEventListener('change', () => {
+    setTimeout(queueMapResizeFix, 100);
+    setTimeout(queueMapResizeFix, 350);
+  });
 
   [el.categoryFilter, el.statusFilter, el.severityFilter, el.searchInput].forEach((node) => {
     node.addEventListener('input', render);
@@ -158,15 +164,27 @@ function setupEvents() {
 
   window.addEventListener('resize', queueMapResizeFix);
   window.addEventListener('orientationchange', queueMapResizeFix);
+  window.addEventListener('focus', queueMapResizeFix);
   window.addEventListener('pageshow', queueMapResizeFix);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       queueMapResizeFix();
     }
   });
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', queueMapResizeFix);
+    window.visualViewport.addEventListener('scroll', queueMapResizeFix);
+  }
+}
+
+function syncViewportHeight() {
+  const viewportHeight = window.visualViewport?.height || window.innerHeight;
+  document.documentElement.style.setProperty('--app-height', `${Math.round(viewportHeight)}px`);
 }
 
 function queueMapResizeFix() {
+  syncViewportHeight();
   if (!state.map) return;
 
   requestAnimationFrame(() => {
@@ -176,7 +194,12 @@ function queueMapResizeFix() {
   setTimeout(() => {
     if (!state.map) return;
     state.map.invalidateSize({ pan: false, animate: false });
-  }, 250);
+  }, 220);
+
+  setTimeout(() => {
+    if (!state.map) return;
+    state.map.invalidateSize({ pan: false, animate: false });
+  }, 650);
 }
 
 function loadReports() {
@@ -235,11 +258,13 @@ function openReportModal({ preserveCoords = false } = {}) {
 function openModal(modal) {
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
+  queueMapResizeFix();
 }
 
 function closeModal(modal) {
   modal.classList.add('hidden');
   modal.setAttribute('aria-hidden', 'true');
+  queueMapResizeFix();
 }
 
 function openMapClickPrompt() {
@@ -348,6 +373,7 @@ async function handleSubmit(event) {
   closeModal(el.reportModal);
   closeMapClickPrompt();
   render();
+  queueMapResizeFix();
 }
 
 function fileToBase64(file) {
